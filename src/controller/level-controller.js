@@ -99,12 +99,13 @@ export default class LevelController extends EventHandler {
         levelFromSet.url.push(level.url);
       }
 
-      if (level.attrs && level.attrs.AUDIO) {
-        addGroupId(levelFromSet || level, 'audio', level.attrs.AUDIO);
-      }
-
-      if (level.attrs && level.attrs.SUBTITLES) {
-        addGroupId(levelFromSet || level, 'text', level.attrs.SUBTITLES);
+      if (level.attrs) {
+        if (level.attrs.AUDIO) {
+          addGroupId(levelFromSet || level, 'audio', level.attrs.AUDIO);
+        }
+        if (level.attrs.SUBTITLES) {
+          addGroupId(levelFromSet || level, 'text', level.attrs.SUBTITLES);
+        }
       }
     });
 
@@ -142,6 +143,8 @@ export default class LevelController extends EventHandler {
           break;
         }
       }
+
+      // Audio is only alternate if manifest include a URI along with the audio group tag
       this.hls.trigger(Event.MANIFEST_PARSED, {
         levels,
         audioTracks,
@@ -149,7 +152,7 @@ export default class LevelController extends EventHandler {
         stats: data.stats,
         audio: audioCodecFound,
         video: videoCodecFound,
-        altAudio: audioTracks.length > 0 && videoCodecFound
+        altAudio: audioTracks.some(t => !!t.url)
       });
     } else {
       this.hls.trigger(Event.ERROR, {
