@@ -121,7 +121,7 @@ export default class Hls extends Observer {
     const abrController = this.abrController = new config.abrController(this);
 
     const bufferController = new config.bufferController(this);
-    const capLevelController = new config.capLevelController(this);
+    const capLevelController = this.capLevelController = new config.capLevelController(this);
     const fpsController = new config.fpsController(this);
     const playListLoader = new PlaylistLoader(this);
     const fragmentLoader = new FragmentLoader(this);
@@ -443,6 +443,27 @@ export default class Hls extends Observer {
     }
 
     hls.levelController.startLevel = newLevel;
+  }
+
+  /**
+   * set  dynamically set capLevelToPlayerSize against (`CapLevelController`)
+   *
+   * @type {boolean}
+   */
+  set capLevelToPlayerSize (shouldStartCapping) {
+    const newCapLevelToPlayerSize = !!shouldStartCapping;
+
+    if (newCapLevelToPlayerSize !== this.config.capLevelToPlayerSize) {
+      if (newCapLevelToPlayerSize) {
+        this.capLevelController.startCapping(); // If capping occurs, nextLevelSwitch will happen based on size.
+      } else {
+        this.capLevelController.stopCapping();
+        this.autoLevelCapping = -1;
+        this.streamController.nextLevelSwitch(); // Now we're uncapped, get the next level asap.
+      }
+
+      this.config.capLevelToPlayerSize = newCapLevelToPlayerSize;
+    }
   }
 
   /**
