@@ -61,20 +61,23 @@ describe('CapLevelController', function () {
   });
 
   describe('initialization', function () {
+    let hls;
     let capLevelController;
     let firstLevelSpy;
     let startCappingSpy;
+    let stopCappingSpy;
     beforeEach(function () {
-      const hls = new Hls({ capLevelToPlayerSize: true });
+      hls = new Hls({ capLevelToPlayerSize: true });
       firstLevelSpy = sinon.spy(hls, 'firstLevel', ['set']);
       capLevelController = new CapLevelController(hls);
-      startCappingSpy = sinon.spy(capLevelController, '_startCapping');
+      startCappingSpy = sinon.spy(capLevelController, 'startCapping');
+      stopCappingSpy = sinon.spy(capLevelController, 'stopCapping');
     });
 
     describe('start and stop', function () {
       it('immediately caps and sets a timer for monitoring size size', function () {
         const detectPlayerSizeSpy = sinon.spy(capLevelController, 'detectPlayerSize');
-        capLevelController._startCapping();
+        capLevelController.startCapping();
         assert(capLevelController.timer);
         assert(firstLevelSpy.set.calledOnce);
         assert(detectPlayerSizeSpy.calledOnce);
@@ -83,7 +86,7 @@ describe('CapLevelController', function () {
       it('stops the capping timer and resets capping', function () {
         capLevelController.autoLevelCapping = 4;
         capLevelController.timer = 1;
-        capLevelController._stopCapping();
+        capLevelController.stopCapping();
 
         assert.strictEqual(capLevelController.autoLevelCapping, Number.POSITIVE_INFINITY);
         assert.strictEqual(capLevelController.restrictedLevels.length, 0);
@@ -138,6 +141,45 @@ describe('CapLevelController', function () {
     it('does not start capping on MANIFEST_PARSED if no video codec was signaled in the manifest', function () {
       capLevelController.onManifestParsed({ levels: [{}], altAudio: true });
       assert(startCappingSpy.notCalled);
+    });
+
+    describe('capLevelToPlayerSize', function () {
+      let streamController;
+      let nextLevelSwitchSpy;
+
+      beforeEach(function () {
+        // For these tests, we need the original HLS object to refer to our manually created capLevelController.
+        hls.capLevelController = capLevelController;
+        streamController = hls.streamController;
+
+        nextLevelSwitchSpy = sinon.spy(streamController, 'nextLevelSwitch');
+        capLevelController.onManifestParsed({ levels, video: {} });
+      });
+
+      it('continues capping without second timer', function () {
+        hls.capLevelToPlayerSize = true;
+        assert(startCappingSpy.calledOnce);
+      });
+
+      it('stops the capping timer and resets capping', function () {
+        hls.capLevelToPlayerSize = false;
+        assert(stopCappingSpy.calledOnce);
+      });
+
+      it('calls for nextLevelSwitch when stopped capping', function () {
+        hls.capLevelToPlayerSize = false;
+        assert(nextLevelSwitchSpy.calledOnce);
+      });
+
+      it('updates config state of capping on change', function () {
+        hls.capLevelToPlayerSize = false;
+        assert(hls.config.capLevelToPlayerSize === false);
+      });
+
+      it('stops capping when destroyed', function () {
+        capLevelController.destroy();
+        assert(stopCappingSpy.calledOnce);
+      });
     });
   });
 });
